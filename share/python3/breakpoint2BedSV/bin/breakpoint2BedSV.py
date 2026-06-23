@@ -57,7 +57,7 @@ def main(argv):
         g_bp2BedSV["install_dir"] = g_bp2BedSV["install_dir"][:-4]
 
     g_bp2BedSV["doc_dir"]  = os.path.join(g_bp2BedSV["install_dir"], "share", "doc", "breakpoint2BedSV")
-    g_bp2BedSV['python_dir'] = os.path.join(g_bp2BedSV["install_dir"], "share", "python3", "breakpoint2BedSV")
+    g_bp2BedSV["python_dir"] = os.path.join(g_bp2BedSV["install_dir"], "share", "python3", "breakpoint2BedSV")
     g_bp2BedSV["bash_dir"] = os.path.join(g_bp2BedSV["install_dir"], "share", "bash", "breakpoint2BedSV")
 
 
@@ -72,7 +72,6 @@ def main(argv):
     # (to keep here after the definition of the correct relative path to sys.path)
     ##############################################################################
     from config import configure_bp2BedSV
-    from file_utils import is_multi_allelic
     from workflow import normalize_shorthand_notation_in_alt, write_bed
 
 
@@ -128,12 +127,8 @@ def main(argv):
         key = key.replace("_", "-")
         print(f"           --{key} {val}")
 
-    print("           ***************************************************\n")
+    print("           ***************************************************")
 
-
-    # Check if the input VCF file contains multi-allelic lines
-	##########################################################
-    is_multi_allelic(g_bp2BedSV)
 
 
     # Normalise ALT (for shorthand notation)
@@ -181,7 +176,7 @@ def main(argv):
 
 	# Finished
 	##########
-    print(f"\n[{time.strftime('%H:%M:%S')}] breakpoint2BedSV completed successfully.")
+    print(f"[{time.strftime('%H:%M:%S')}] breakpoint2BedSV completed successfully")
 
 
 if __name__ == "__main__":

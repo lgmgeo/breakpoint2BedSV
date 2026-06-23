@@ -20,48 +20,11 @@ along with this program; If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import sys
-import re
 import subprocess
 import shutil
 import argparse
 import tempfile
-from file_utils import is_an_empty_vcf_file, check_vcf_variant_line_format, print_flush as print
-from functools import partial
-
-def valid_vcf_input_file(vcf_input_file):
-    """
-    Check if the VCF input file:
-    - exists
-    - has .vcf or .vcf.gz extension
-    - contains at least 1 SV line (not empty)
-    - contains the #CHROM line
-    - has the same number of fields in the variant lines as defined by the #CHROM header line.
-    - empty variant line exists 
-    """
-    # Check if the file exists
-    if not os.path.isfile(vcf_input_file):
-        # Normal error -> argparse will handle and exit with code 2
-        raise argparse.ArgumentTypeError(f"File '{vcf_input_file}' does not exist")
-
-    # Check if the file has a valid VCF extension
-    if not (vcf_input_file.endswith(".vcf") or vcf_input_file.endswith(".vcf.gz")):
-        raise argparse.ArgumentTypeError(f"File '{vcf_input_file}' must have .vcf or .vcf.gz extension")
-
-    # Special case: empty VCF file -> print message and exit with code 0
-    if is_an_empty_vcf_file(vcf_input_file):
-        print(f"File '{vcf_input_file}' is empty, no SV to lift")
-        sys.exit(0)
-
-    # Check if the input VCF file contains multi-allelic lines
-    message = check_vcf_variant_line_format(vcf_input_file)
-    if message != "OK":
-        print(message)
-        sys.exit(1)
-
-    # If all checks pass, return the vcf_input_file
-    return vcf_input_file
-    
-
+from file_utils import has_only_valid_variants, is_multi_allelic
 
 
 def valid_tool_path(tool_path, tool_name):
@@ -112,7 +75,7 @@ def configure_bp2BedSV(argv, g_bp2BedSV):
     # Creation of the parser
     ########################
     parser = argparse.ArgumentParser(
-        description="Convert SV breakpoints from VCF to BED using variant-extractor",
+        description="Convert SV breakpoints from VCF/BCF to BED",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
@@ -139,9 +102,8 @@ def configure_bp2BedSV(argv, g_bp2BedSV):
         "-i", "--input-file", dest="input_file",
         metavar="<File>",
         required=True,
-        type=valid_vcf_input_file,
-        help="""the SV VCF input file
-gzipped VCF file is supported
+        help="""the SV VCF/BCF input file
+VCF/VCF.gz/BCF files are supported
 multi-allelic lines are not allowed
 required"""
     )
@@ -200,6 +162,14 @@ If not provided, the system default temporary directory is used."""
     # Completion of the g_bp2BedSV dictionary
     ###########################################
     g_bp2BedSV.update(vars(args))
+
+    # Check the input_file
+    ######################
+    has_only_valid_variants(args.input_file)
+        
+    # Check if the input VCF file contains multi-allelic lines
+	##########################################################
+    is_multi_allelic(g_bp2BedSV)
 
     # Check tmp_dir
     ###############

@@ -17,61 +17,113 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; If not, see <http://www.gnu.org/licenses/>.
 """
+import subprocess
+import sys
+import gzip
+from pathlib import Path
 
-import argparse
-import re
-import tempfile
-from variant_extractor import VariantExtractor
+def open_variant_stream(path):
+    """
+    Open a variant file as a text stream.
 
+    Supports:
+      - .vcf
+      - .vcf.gz
+      - .bcf
 
+    Returns
+    -------
+    fin : file-like object
+        Readable text stream containing VCF lines.
+    proc : subprocess.Popen or None
+        bcftools process if input is BCF, otherwise None.
+    """
+    path = Path(path)
+    suffixes = path.suffixes
 
-def normalize_shorthand_notation_in_alt(vcf_in, vcf_out, chunk_size=50000):
+    if suffixes and suffixes[-1] == ".bcf":
+        proc = subprocess.Popen(
+            ["bcftools", "view", "-Ov", str(path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return proc.stdout, proc
+
+    elif len(suffixes) >= 2 and suffixes[-2:] == [".vcf", ".gz"]:
+        return gzip.open(path, "rt"), None
+
+    elif suffixes and suffixes[-1] == ".vcf":
+        return open(path, "r"), None
+
+    else:
+        raise ValueError(
+            f"Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf"
+        )
+
+def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000):
     """
     Normalize ALT fields for variant-extractor compatibility while preserving non-key metadata tags.
-
-    Specifically removes key=value attributes (e.g. SVSIZE=59) but keeps standalone tags (e.g. AGGREGATED).
-
+    Specifically removes tags with key=value attributes (e.g. SVSIZE=59) but keeps standalone tags (e.g. AGGREGATED).
     Example:
         <DUP:SVSIZE=59:AGGREGATED> >> <DUP:AGGREGATED>
+    Supports:
+        - .vcf
+        - .vcf.gz
+        - .bcf
     """
+
     def fix_alt(alt):
         if not (alt.startswith("<") and alt.endswith(">")):
             return alt
 
         content = alt[1:-1]
         parts = content.split(":")
-
-        cleaned = []
-        for p in parts:
-            if "=" in p:
-                continue
-            cleaned.append(p)
+        cleaned = [p for p in parts if "=" not in p]
 
         return "<" + ":".join(cleaned) + ">"
 
+
     buffer = []
+    fin, proc = open_variant_stream(svfile_in)
 
-    with open(vcf_in) as fin, open(vcf_out, "w") as fout:
+    try:
+        with fin, open(svfile_out, "w") as fout:
+            for line in fin:
+                if line.startswith("#"):
+                    buffer.append(line)
+                    continue
 
-        for line in fin:
+                fields = line.rstrip("\n").split("\t")
 
-            if line.startswith("#"):
-                buffer.append(line)
-                continue
+                # ligne non standard / vide : on la recopie telle quelle
+                if len(fields) < 5:
+                    buffer.append(line)
+                    continue
 
-            fields = line.rstrip().split("\t")
-            fields[4] = fix_alt(fields[4])
+                fields[4] = fix_alt(fields[4])
+                buffer.append("\t".join(fields) + "\n")
 
-            buffer.append("\t".join(fields) + "\n")
+                if len(buffer) >= chunk_size:
+                    fout.writelines(buffer)
+                    buffer = []
 
-            # flush par batch
-            if len(buffer) >= chunk_size:
+            if buffer:
                 fout.writelines(buffer)
-                buffer = []
 
-        # flush final
-        if buffer:
-            fout.writelines(buffer)
+        # si on est passé par bcftools, vérifier qu'il s'est terminé correctement
+        if proc is not None:
+            stderr = proc.stderr.read()
+            retcode = proc.wait()
+            if retcode != 0:
+                raise RuntimeError(
+                    f"bcftools failed on {svfile_in} (exit code {retcode}):\n{stderr}"
+                )
+
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+
 
 
 
