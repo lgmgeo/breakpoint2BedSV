@@ -125,7 +125,7 @@ default: current directory"""
         "-o", "--output-file", dest="output_file",
         required=True,
         metavar="<File>",
-        help="""Output BED file with all the SV breakpoints
+        help="""output BED file with all the SV breakpoints
 required"""
     )
 
@@ -140,8 +140,8 @@ required"""
         "-T", "--tmp-dir", dest="tmp_dir",
         type=str,
         metavar="<Dir>",
-        help="""Directory where temporary files will be created.
-If not provided, the system default temporary directory is used."""
+        help="""directory where temporary files will be created.
+if not provided, the system default temporary directory is used."""
     )
 
     group_behavior.add_argument(
@@ -167,8 +167,8 @@ If not provided, the system default temporary directory is used."""
     ######################
     has_only_valid_variants(args.input_file)
         
-    # Check if the input VCF file contains multi-allelic lines
-	##########################################################
+    # Check if the input SV file contains multi-allelic lines
+	#########################################################
     is_multi_allelic(g_bp2BedSV)
 
     # Check tmp_dir

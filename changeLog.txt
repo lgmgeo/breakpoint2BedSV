@@ -20,11 +20,12 @@
 
 For more details, please see the README file.
 
-Jun, 23, 2026, breakpoint2BedSV version 0.2
-	feat: Add support for .bcf input files (via bcftools streaming)
+Jun, , 2026, breakpoint2BedSV version 0.2
+	- Add support for .bcf input files (via bcftools streaming)
+	- Add of the README.md
 
 Jun, 15, 2026, breakpoint2BedSV version 0.1
-	breakpoint2BedSV: Extract SV breakpoints from a VCF and export them in BED format.
+	- breakpoint2BedSV: Extract SV breakpoints from a VCF and export them in BED format.
 
 
 
