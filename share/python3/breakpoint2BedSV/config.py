@@ -24,7 +24,6 @@ import subprocess
 import shutil
 import argparse
 import tempfile
-from file_utils import has_only_valid_variants, is_multi_allelic
 
 
 def valid_tool_path(tool_path, tool_name):
@@ -162,15 +161,7 @@ if not provided, the system default temporary directory is used."""
     # Completion of the g_bp2BedSV dictionary
     ###########################################
     g_bp2BedSV.update(vars(args))
-
-    # Check the input_file
-    ######################
-    has_only_valid_variants(args.input_file)
         
-    # Check if the input SV file contains multi-allelic lines
-	#########################################################
-    is_multi_allelic(g_bp2BedSV)
-
     # Check tmp_dir
     ###############
     # Determine tmp_dir

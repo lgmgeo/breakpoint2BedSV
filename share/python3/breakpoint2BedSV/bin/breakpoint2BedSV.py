@@ -73,6 +73,7 @@ def main(argv):
     ##############################################################################
     from config import configure_bp2BedSV
     from workflow import normalize_shorthand_notation_in_alt, write_bed
+    from file_utils import is_multi_allelic, has_only_valid_variants
 
 
     # Search for the breakpoint2BedSV VERSION
@@ -105,10 +106,10 @@ def main(argv):
     print(f"\nbreakpoint2BedSV {g_bp2BedSV['version']}")
     print("Copyright (C) 2026-current GEOFFROY Veronique")
     print("Please feel free to create a Github issue for any suggestions or bug reports")
-    print("https://github.com/lgmgeo/breakpoint2BedSV/issues\n")
+    print("https://github.com/lgmgeo/breakpoint2BedSV/issues")
     print("\nPython version:", platform.python_version(), "\n")
     print("Application name used:")
-    print(g_bp2BedSV["install_dir"], "\n")
+    print(g_bp2BedSV["install_dir"])
 
 
     # Arguments display
@@ -129,6 +130,15 @@ def main(argv):
 
     print("           ***************************************************")
 
+
+    # Check the input_file
+    ######################
+    has_only_valid_variants(g_bp2BedSV["input_file"])
+
+
+    # Check if the input SV file contains multi-allelic lines
+	#########################################################
+    is_multi_allelic(g_bp2BedSV)
 
 
     # Normalise ALT (for shorthand notation)

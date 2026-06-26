@@ -20,6 +20,7 @@ along with this program; If not, see <http://www.gnu.org/licenses/>.
 import subprocess
 import sys
 import gzip
+import pysam
 from pathlib import Path
 
 def open_variant_stream(path):
@@ -136,10 +137,12 @@ def write_bed(extractor, out_path, chunk_size=5000):
             out.writelines(buffer)
             buffer.clear()
 
+    # Suppress repeated htslib/pysam warnings (e.g. contig/header issues)
+    # These warnings can be emitted multiple times because the VCF is parsed by pysam (def has_only_valid_variants) and by VariantExtractor 
+    pysam.set_verbosity(0)
+
     with open(out_path, "w") as out:
-
         for sv in extractor:
-
             chrom1 = sv.contig
             pos1 = sv.pos
             svid = sv.id or "."

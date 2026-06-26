@@ -38,6 +38,8 @@ def has_only_valid_variants(sv_file: str) -> bool:
         True if file is empty or invalid, False otherwise.
     """
 
+    print(f"[{time.strftime('%H:%M:%S')}] Ensuring that the SV input file contains only valid variants")
+
     # Quick check on extension
     if not re.search(r"\.vcf(\.gz)?$|\.bcf$", sv_file, re.IGNORECASE):
         print(f"[WARNING] Not the correct extension: {sv_file}")
@@ -48,7 +50,6 @@ def has_only_valid_variants(sv_file: str) -> bool:
             # Try to get first record
             for _ in vf:
                 return True  # Found at least one variant
-
     except FileNotFoundError:
         # File doesn't exist 
         print(f"[WARNING] File doesn't exist: {sv_file}: {e}")
@@ -59,6 +60,10 @@ def has_only_valid_variants(sv_file: str) -> bool:
     except Exception as e:
         print(f"[WARNING] Could not read file: {sv_file}: {e}")
         sys.exit(2)
+
+    # Suppress repeated htslib/pysam warnings (e.g. contig/header issues)
+    # These warnings can be emitted multiple times when the VCF is parsed by pysam and by VariantExtractor 
+    pysam.set_verbosity(0)
 
     # No records found → file is empty
     sys.exit(2)
@@ -88,7 +93,6 @@ def is_multi_allelic(g_bp2BedSV):
     print(f"[{time.strftime('%H:%M:%S')}] Ensuring that the SV input file contains only biallelic variants")
 
     input_file = g_bp2BedSV["input_file"]
-    print(input_file)
     if input_file.endswith(".gz"):
         cmd = f"zcat {input_file} | grep -v ^# | cut -f 4-5 | grep -c ,"
     else:
