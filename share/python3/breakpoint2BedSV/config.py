@@ -37,7 +37,7 @@ def valid_tool_path(tool_path, tool_name):
     # Resolve "full path" / "command name" in PATH
     resolved_path = shutil.which(tool_path)
     if resolved_path is None:
-        raise ValueError(f"[Error] {tool_name} not found in PATH ('{tool_path}').")
+        raise ValueError(f"[ERROR] {tool_name} not found in PATH ('{tool_path}').")
 
     # Try running the tool
     try:
@@ -53,10 +53,10 @@ def valid_tool_path(tool_path, tool_name):
         # Check if 'usage' or 'help' appears in output
         output = result.stdout.lower()
         if "usage" not in output and "help" not in output:
-            raise ValueError(f"[Error] {tool_name} does not seem valid ('{tool_path}').")
+            raise ValueError(f"[ERROR] {tool_name} does not seem valid ('{tool_path}').")
 
     except Exception as e:
-        raise ValueError(f"[Error] Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
+        raise ValueError(f"[ERROR] Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
 
     return resolved_path
 
@@ -121,7 +121,9 @@ default: current directory"""
         "-o", "--output-file", dest="output_file",
         required=True,
         metavar="<File>",
-        help="""output BED file with all the SV breakpoints
+        help="""output BED file containing non redundant SV breakpoints
+(VCF/BCF IDs are merged as a comma-separated list when
+multiple variants share the same coordinates)
 required"""
     )
 
@@ -136,8 +138,8 @@ required"""
         "-T", "--tmp-dir", dest="tmp_dir",
         type=str,
         metavar="<Dir>",
-        help="""directory where temporary files will be created.
-if not provided, the system default temporary directory is used."""
+        help="""directory where temporary files will be created
+if not provided, the system default temporary directory is used"""
     )
 
     group_behavior.add_argument(

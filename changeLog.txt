@@ -22,6 +22,7 @@ For more details, please see the README file.
 
 Jun, 30, 2026, breakpoint2BedSV version 1.0
 	- Introduce automated testing (pytest, 9 tests) and CI pipeline (GitHub Actions)
+	- Skip unsupported SV types (MULTIALLELIC, BND, CPX and CTX)
 	- Add support for .bcf input files (via bcftools streaming)
 	- Add the README.md
 	- Improve the output display

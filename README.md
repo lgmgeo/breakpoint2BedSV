@@ -9,28 +9,32 @@
 - [Quick Installation](#quick-installation)
 - [Command line usage / Options](#command-line-usage--options)
 - [Outputs](#outputs)
+- [Variant filtering rules](#variant-filtering-rules)
+  - [FILTER-based / ALT-based exclusions](#filter-based--alt-based-exclusions)
+  - [Behavior](#behavior)
 - [How to cite?](#how-to-cite)
 - [Tests](#tests)
-- [Example use: Assessment of SV presence/absence in a cohort relative to gnomAD v4 SV](#example-use-assessment-of-sv-presenceabsence-in-a-cohort-relative-to-gnomad-v4-sv)
+- [Example use: Assessment in a cohort of SV presence/absence relative to gnomAD v4 SV](#example-use-assessment-in-a-cohort-of-sv-presenceabsence-relative-to-gnomad-v4-sv)
 
 ## Why extracting start/end SV breakpoints from a VCF is not trivial
+
 In an SV VCF, the first breakpoint is usually straightforward to retrieve from the `CHROM` and `POS` columns.
 However, the second breakpoint is not encoded in a single standardized way and may appear in different fields depending on the SV type or the caller.
 
-| SV representation                                          | First breakpoint | Second breakpoint                        |
-| ---------------------------------------------------------- | ---------------- | ---------------------------------------- |
-| Symbolic allele (`<DEL>`, `<DUP>`, `<INV>`, `<CNV>`)       | `CHROM:POS`      | usually `INFO/END`                       |
-| Breakend notation (e.g. `]chr13:53040041]ATATATATACACACA)` | `CHROM:POS`      | embedded in the `ALT` field              |
-| Sequence notation (e.g. `REF=A` and `ALT=ATGATTCGTTCTG...`)| `CHROM:POS`      | embedded in the `REF` field              |
-| Sequence notation (e.g. `REF=TGGAATTAGCCTG...` and `ALT=T`)| `CHROM:POS`      | embedded in the `REF` field              |
-| Caller-specific representations                            | `CHROM:POS`      | may use alternative tags such as `SVEND` |
+| SV representation                                               | First breakpoint | Second breakpoint                        |
+| --------------------------------------------------------------- | ---------------- | ---------------------------------------- |
+| Symbolic allele (`<DEL>`, `<DUP>`, `<INV>`, `<CNV>`)            | `CHROM:POS`      | usually `INFO/END`                       |
+| Breakend notation (e.g. `]chr13:53040041]ATATATATACACACA`)      | `CHROM:POS`      | embedded in the `ALT` field              |
+| Sequence notation (e.g. INS: `REF=A` and `ALT=ATGATTCGTTCTG...`)| `CHROM:POS`      | embedded in the `REF` field              |
+| Sequence notation (e.g. DEL: `REF=TGGAATTAGCCTG...` and `ALT=T`)| `CHROM:POS`      | embedded in the `REF` field              |
+| Caller-specific representations                                 | `CHROM:POS`      | may use alternative tags such as `SVEND` |
 
 As a consequence, extracting both breakpoints from an SV VCF requires handling multiple representations.
 `breakpoint2BedSV` addresses this issue by converting heterogeneous SV representations into a unified BED-like breakpoint format.
 
-
 ## Requirements
-```
+
+```text
 python >=3.8
 #poetry #(https://python-poetry.org/docs/#installation)
 pysam==0.22.1
@@ -38,11 +42,15 @@ variant_extractor==5.1.0
 ```
 
 ## Quick Installation
-```
+
+```bash
 conda create -n breakpoint2BedSV python=3.8 pysam==0.22.1
 pip install variant-extractor
 
 conda activate breakpoint2BedSV
+
+# Install from GitHub
+git clone git@github.com:lgmgeo/breakpoint2BedSV.git
 
 # Install with poetry
 (not yet available)
@@ -50,14 +58,12 @@ conda activate breakpoint2BedSV
 # Install from PyPI
 pip3 install breakpoint2BedSV (not yet available)
 
-# Install from GitHub
-git clone git@github.com:lgmgeo/breakpoint2BedSV.git
-
 # Upgrade 
 pip3 install breakpoint2BedSV --upgrade (not yet available)
 ```
 
 ## Command line usage / Options
+
 ```bash
 usage: breakpoint2BedSV.py [-h] [-V] -i <File> [-d <Dir>] -o <File> [-T <Dir>] [-v]
 
@@ -79,31 +85,68 @@ Output options:
                         the output directory
                         default: current directory
   -o <File>, --output-file <File>
-                        Output BED file with all the SV breakpoints
+                        output BED file containing non redundant SV breakpoints
+                        (VCF/BCF IDs are merged as a comma-separated list when
+                        multiple variants share the same coordinates)
                         required
 
 Behavior:
   -T <Dir>, --tmp-dir <Dir>
-                        Directory where temporary files will be created.
-                        If not provided, the system default temporary directory is used.
+                        directory where temporary files will be created
+                        if not provided, the system default temporary directory is used
   -v, --verbose         enable verbose output
 
 ```
 
 ## Outputs
+
 Running the tool will generate a BED output file with SV start/end coordinates and the associated VCF ID.
+Redundant genomic coordinates are merged into a single BED entry, with multiple VCF IDs reported as a comma-separated list.
+
+## Variant filtering rules
+
+`breakpoint2BedSV` only processes structural variants compatible with breakpoint-based BED representation.
+
+During parsing, the following records are automatically ignored:
+
+### FILTER-based / ALT-based exclusions
+
+The following SV are not supported:
+- FILTER = `MULTIALLELIC` (including MCNV-like multi-allelic CNV representations)
+- ALT = `<BND>` (breakend complex rearrangements)
+- ALT = `<CPX>` (complex structural variants)
+- ALT = `<CTX>` (complex translocations)
+
+### Behavior
+- These variants are **skipped during parsing**
+- They are **not written to the output BED file**
+- The number of skipped records is reported as a warning in the standard output
 
 ## How to cite?
+
 Please cite the following doi if you are using this tool in your research:<br>
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.14922213-blue.svg)](https://doi.org/)
 
 ## Tests
-A set of tests is included to ensure the correct functioning of breakpoint2BedSV.
-The test scripts are located in the `tests/breakpoint2BedSV` directory.
 
-Running them after installation or before submitting changes is recommended to verify that everything works as expected.
+`breakpoint2BedSV` includes an automated test suite based on `pytest`.
 
-## Example use: Assessment of SV presence/absence in a cohort relative to gnomAD v4 SV
+To run all tests locally:
+
+```bash
+pytest -v
+```
+
+To list the collected tests without executing them:
+
+```bash
+pytest --collect-only
+```
+
+The test data and test scripts are located in the `tests/` directory.
+All tests are also executed automatically through GitHub Actions on each push and pull request.
+
+## Example use: Assessment in a cohort of SV presence/absence relative to gnomAD v4 SV
 
 **Aim**
 
@@ -129,13 +172,16 @@ SV VCF
 **GRCh38 gnomAD exclusion resources**
 
 SV calling is less reliable in some genomic regions due to:
+
 - low mappability / depth bias
 - peri-centromeric or peri-telomeric repeats
 - known problematic regions in population datasets such as gnomAD
 
 Two GRCh38 gnomAD exclusion regions:
-* `depth_blacklist.sorted.bed.gz`
-* `PESR.encode.peri_all.repeats.delly.hg38.blacklist.sorted.bed.gz`
+
+- `depth_blacklist.sorted.bed.gz`
+- `PESR.encode.peri_all.repeats.delly.hg38.blacklist.sorted.bed.gz`
+
 ```bash
 curl -O https://storage.googleapis.com/gatk-sv-resources-public/hg38/v0/sv-resources/resources/v1/depth_blacklist.sorted.bed.gz
 curl -O  https://storage.googleapis.com/gatk-sv-resources-public/hg38/v0/sv-resources/resources/v1/PESR.encode.peri_all.repeats.delly.hg38.blacklist.sorted.bed.gz
@@ -176,7 +222,8 @@ bedtools intersect \
   -b PESR.encode.peri_all.repeats.delly.hg38.blacklist.sorted.bed.gz \
   -wa | cut -f4 | sort -u >> excluded_ids.txt
 
-sort -u excluded_ids.txt > excluded_ids.final.txt
+tr "," "\n" < excluded_ids.txt | sort -u > excluded_ids.final.txt
+rm excluded_ids.txt
 ```
 
 ---

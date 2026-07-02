@@ -114,7 +114,11 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
 
     buffer = []
     fin, proc = open_variant_stream(svfile_in)
-    
+    n_mcnv = 0
+    n_cpx = 0
+    n_ctx = 0
+    n_bnd = 0
+
     try:
         with fin, open(svfile_out, "w") as fout:
             for line in fin:
@@ -129,7 +133,25 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
                     buffer.append(line)
                     continue
 
+                # FILTER: MULTIALLELIC (as in gnomAD SV v4: same ID and ALT = <CN0> or <CN1> or <CN2> or <CN3> or...)
+                if "MULTIALLELIC" in fields[6]:
+                    n_mcnv += 1
+                    continue
+
+                # TYPE: BND/CPX/CTX (as in gnomAD SV v4)
+                if fields[4] == "<BND>":
+                    n_bnd += 1
+                    continue
+                if fields[4] == "<CPX>":
+                    n_cpx += 1
+                    continue  
+                if fields[4] == "<CTX>":
+                    n_ctx += 1
+                    continue
+
+                # ALT: normalisation de la notation abrégée
                 fields[4] = fix_alt(fields[4])
+
                 buffer.append("\t".join(fields) + "\n")
 
                 if len(buffer) >= chunk_size:
@@ -138,6 +160,14 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
 
             if buffer:
                 fout.writelines(buffer)
+            if n_mcnv > 0:
+                print(f"[{time.strftime('%H:%M:%S')}] - {n_mcnv} MULTIALLELIC lines were removed from the input file")
+            if n_cpx > 0:   
+                print(f"[{time.strftime('%H:%M:%S')}] - {n_cpx} CPX lines were removed from the input file")
+            if n_bnd > 0:
+                print(f"[{time.strftime('%H:%M:%S')}] - {n_bnd} BND lines were removed from the input file")
+            if n_ctx > 0:
+                print(f"[{time.strftime('%H:%M:%S')}] - {n_ctx} CTX lines were removed from the input file")
 
         # si on est passé par bcftools, vérifier qu'il s'est terminé correctement
         if proc is not None:
