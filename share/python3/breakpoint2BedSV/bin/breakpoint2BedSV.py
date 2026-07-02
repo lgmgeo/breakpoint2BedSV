@@ -27,6 +27,7 @@ import re
 import time
 import platform
 import tempfile
+from pathlib import Path
 from variant_extractor import VariantExtractor
 
 
@@ -72,8 +73,8 @@ def main(argv):
     # (to keep here after the definition of the correct relative path to sys.path)
     ##############################################################################
     from config import configure_bp2BedSV
-    from workflow import normalize_shorthand_notation_in_alt, write_bed
-    from file_utils import is_multi_allelic, has_only_valid_variants
+    from workflow import normalize_shorthand_notation_in_alt, write_bed, merge_and_sort_bed
+    from file_utils import ensure_bgzf, is_multi_allelic, has_only_valid_variants
 
 
     # Search for the breakpoint2BedSV VERSION
@@ -131,14 +132,25 @@ def main(argv):
     print("           ***************************************************")
 
 
+    # Ensure that the input SV file is pysam-compatible (VCF/BCF)
+    #############################################################
+    tmp_bgzf = None
+    g_bp2BedSV["input_file"], tmp_bgzf = ensure_bgzf(g_bp2BedSV["input_file"])
+
+
     # Check the input_file
     ######################
-    has_only_valid_variants(g_bp2BedSV["input_file"])
+    try:
+        has_only_valid_variants(g_bp2BedSV["input_file"])
+        is_multi_allelic(g_bp2BedSV)
 
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
 
-    # Check if the input SV file contains multi-allelic lines
-	#########################################################
-    is_multi_allelic(g_bp2BedSV)
+    except Exception as e:
+        print(f"[FATAL] Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
     # Normalise ALT (for shorthand notation)
@@ -168,20 +180,18 @@ def main(argv):
     write_bed(extractor, tmp_bed_path)
 
 
-    # SORT BED FINAL
-    ################
+    # REMOVE REDUNDANCY + SORT BED FINAL
+    ####################################
     print(f"[{time.strftime('%H:%M:%S')}] Writing the sorted output BED file")
-    with open(tmp_bed_path) as f:
-        lines = f.readlines()
-
+    merge_and_sort_bed(tmp_bed_path, g_bp2BedSV["output_file"])
     os.remove(tmp_bed_path)
+    
 
-    lines.sort(key=lambda x: (x.split("\t")[0], int(x.split("\t")[1])))
-
-    with open(g_bp2BedSV["output_file"], "w") as out:
-        out.writelines(lines)
-
-
+    # Cleanup temporary files
+    #########################
+    if tmp_bgzf is not None:
+        Path(tmp_bgzf).unlink(missing_ok=True)
+        Path(tmp_bgzf + ".tbi").unlink(missing_ok=True)
 
 
 	# Finished

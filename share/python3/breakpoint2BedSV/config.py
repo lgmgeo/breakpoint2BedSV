@@ -37,8 +37,7 @@ def valid_tool_path(tool_path, tool_name):
     # Resolve "full path" / "command name" in PATH
     resolved_path = shutil.which(tool_path)
     if resolved_path is None:
-        print(f"\nError: {tool_name} not found in PATH ('{tool_path}').")
-        sys.exit(2)
+        raise ValueError(f"[Error] {tool_name} not found in PATH ('{tool_path}').")
 
     # Try running the tool
     try:
@@ -54,12 +53,10 @@ def valid_tool_path(tool_path, tool_name):
         # Check if 'usage' or 'help' appears in output
         output = result.stdout.lower()
         if "usage" not in output and "help" not in output:
-            print(f"\nError: {tool_name} does not seem valid ('{tool_path}').")
-            sys.exit(2)
+            raise ValueError(f"[Error] {tool_name} does not seem valid ('{tool_path}').")
 
-    except Exception:
-        print(f"\nError: Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
-        sys.exit(2)
+    except Exception as e:
+        raise ValueError(f"[Error] Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
 
     return resolved_path
 
@@ -170,7 +167,7 @@ if not provided, the system default temporary directory is used."""
     else:
         # Ensure directory exists
         if not os.path.isdir(g_bp2BedSV["tmp_dir"]):
-            raise ValueError(f"Temporary directory does not exist: {g_bp2BedSV['tmp_dir']}")
+            raise ValueError(f"[ERROR] Temporary directory does not exist: {g_bp2BedSV['tmp_dir']}")
     
     # Determine output_dir if not given in argument
     ###############################################

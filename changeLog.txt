@@ -20,9 +20,10 @@
 
 For more details, please see the README file.
 
-Jun, , 2026, breakpoint2BedSV version 0.2
+Jun, 30, 2026, breakpoint2BedSV version 1.0
+	- Introduce automated testing (pytest, 9 tests) and CI pipeline (GitHub Actions)
 	- Add support for .bcf input files (via bcftools streaming)
-	- Add of the README.md
+	- Add the README.md
 	- Improve the output display
 
 Jun, 15, 2026, breakpoint2BedSV version 0.1

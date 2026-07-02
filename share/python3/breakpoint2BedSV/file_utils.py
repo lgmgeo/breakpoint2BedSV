@@ -19,11 +19,78 @@ along with this program; If not, see <http://www.gnu.org/licenses/>.
 """
 
 import gzip
+import shutil
+import tempfile
+from pathlib import Path
 import re
 import subprocess
 import time
 import pysam
 import sys
+
+
+def ensure_bgzf(path):
+    """
+    Ensure that a .vcf.gz file is BGZF-compressed.
+
+    If the input file is already BGZF-compressed and readable by
+    ``pysam.VariantFile``, its path is returned unchanged.
+
+    Otherwise, the file is decompressed and recompressed into a temporary
+    BGZF-compressed VCF, which is indexed with tabix.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Path to the input VCF/VCF.gz file.
+
+    Returns
+    -------
+    tuple[str, str | None]
+        - Path to a BGZF-compatible VCF.
+        - Path to the temporary BGZF file if one was created, otherwise None.
+
+    Notes
+    -----
+    When a temporary BGZF file is created, the caller is responsible for
+    removing both the ``.vcf.gz`` file and its associated ``.tbi`` index.
+    """
+    path = Path(path)
+
+    # If the file is not a .vcf.gz, return it as is
+    if not str(path).endswith(".vcf.gz"):
+        return str(path), None
+
+    try:
+        # Check if the .vcf.gz is already BGZF-compressed
+        pysam.VariantFile(str(path))
+        return str(path), None
+    
+    except Exception:
+        # If not, decompress and recompress to BGZF in a temporary file
+
+        # Create a temporary file for the decompressed VCF
+        tmp_vcf = tempfile.NamedTemporaryFile(suffix=".vcf", delete=False)
+        tmp_vcf.close()
+
+        try:
+            # Decompress the gzip file to the temporary VCF file
+            with gzip.open(path, "rb") as fin, open(tmp_vcf.name, "wb") as fout:
+                shutil.copyfileobj(fin, fout)
+
+            # Create a temporary file for the BGZF-compressed VCF
+            tmp_bgzf = tempfile.NamedTemporaryFile(suffix=".vcf.gz", delete=False)
+            tmp_bgzf.close()
+
+            # Recompress the temporary VCF file to BGZF
+            pysam.tabix_compress(tmp_vcf.name, tmp_bgzf.name, force=True)
+            pysam.tabix_index(tmp_bgzf.name, preset="vcf", force=True)
+
+            return tmp_bgzf.name, tmp_bgzf.name
+        finally:
+            # Clean up the temporary decompressed VCF file
+            Path(tmp_vcf.name).unlink(missing_ok=True)
+
 
 
 def has_only_valid_variants(sv_file: str) -> bool:
@@ -42,31 +109,25 @@ def has_only_valid_variants(sv_file: str) -> bool:
 
     # Quick check on extension
     if not re.search(r"\.vcf(\.gz)?$|\.bcf$", sv_file, re.IGNORECASE):
-        print(f"[WARNING] Not the correct extension: {sv_file}")
-        sys.exit(2)
+        raise ValueError(f"[ERROR] Not the correct extension: {sv_file}")
 
     try:
+
         with pysam.VariantFile(sv_file) as vf:
             # Try to get first record
             for _ in vf:
                 return True  # Found at least one variant
     except FileNotFoundError:
         # File doesn't exist 
-        print(f"[WARNING] File doesn't exist: {sv_file}: {e}")
-        sys.exit(2)
-    except ValueError:
+        raise ValueError(f"[ERROR] File doesn't exist: {sv_file}")
+    except (ValueError, OSError) as e:
         # pysam raises ValueError for invalid format
-        sys.exit(2)
+        raise ValueError(f"[ERROR] Invalid VCF/BCF file {sv_file}: {e}")
     except Exception as e:
-        print(f"[WARNING] Could not read file: {sv_file}: {e}")
-        sys.exit(2)
-
-    # Suppress repeated htslib/pysam warnings (e.g. contig/header issues)
-    # These warnings can be emitted multiple times when the VCF is parsed by pysam and by VariantExtractor 
-    pysam.set_verbosity(0)
+        raise ValueError(f"[ERROR] Could not read file {sv_file}: {e}")
 
     # No records found → file is empty
-    sys.exit(2)
+    raise ValueError(f"[ERROR] No SV found in file: {sv_file}")
 
 
 
@@ -103,11 +164,7 @@ def is_multi_allelic(g_bp2BedSV):
         output = result.stdout.strip()
         n_multiallelic_line = output[0] if output else "" 
         if n_multiallelic_line != "0":
-            print("####################################################################################")
-            print("Please split the multi-allelic lines of the SV input file before to run bp2BedSV")
-            print("Exit without error.")
-            print("####################################################################################")
-            sys.exit(0)
+            raise ValueError("[ERROR] Please split the multi-allelic lines of the SV input file before to run bp2BedSV")
     except subprocess.CalledProcessError:
         pass
 

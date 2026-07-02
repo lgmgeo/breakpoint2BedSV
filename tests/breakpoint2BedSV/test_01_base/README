@@ -1,3 +1,0 @@
-python3 ../../../bin/breakpoint2BedSV.py -i input/test.vcf  -o output/test.bed
-
-python3 ../../../bin/breakpoint2BedSV.py -i input/test.bcf  -o output/test.bed

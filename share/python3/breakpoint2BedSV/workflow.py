@@ -18,10 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; If not, see <http://www.gnu.org/licenses/>.
 """
 import subprocess
-import sys
-import gzip
 import pysam
 from pathlib import Path
+import tempfile
+
 
 def open_variant_stream(path):
     """
@@ -29,8 +29,11 @@ def open_variant_stream(path):
 
     Supports:
       - .vcf
-      - .vcf.gz
+      - .vcf.gz (gzip or bgzip)
       - .bcf
+
+    If a .vcf.gz is not BGZF-compressed, it is transparently converted
+    to a temporary BGZF file.
 
     Returns
     -------
@@ -42,6 +45,7 @@ def open_variant_stream(path):
     path = Path(path)
     suffixes = path.suffixes
 
+    # BCF 
     if suffixes and suffixes[-1] == ".bcf":
         proc = subprocess.Popen(
             ["bcftools", "view", "-Ov", str(path)],
@@ -51,21 +55,44 @@ def open_variant_stream(path):
         )
         return proc.stdout, proc
 
+    # VCF.GZ
     elif len(suffixes) >= 2 and suffixes[-2:] == [".vcf", ".gz"]:
-        return gzip.open(path, "rt"), None
+        # Vérifie si le fichier est déjà BGZF
+        try:
+            pysam.VariantFile(str(path)).close()
+            bgzf_path = path
+        except (OSError, ValueError):
+            # Conversion automatique en BGZF
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".vcf.gz",
+                delete=False,
+            )
+            tmp.close()
 
+            pysam.tabix_compress(str(path), tmp.name, force=True)
+            pysam.tabix_index(tmp.name, preset="vcf", force=True)
+
+            bgzf_path = Path(tmp.name)
+
+        proc = subprocess.Popen(
+            ["bcftools", "view", "-Ov", str(bgzf_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return proc.stdout, proc        
+
+    # Plain VCF
     elif suffixes and suffixes[-1] == ".vcf":
         return open(path, "r"), None
 
     else:
-        raise ValueError(
-            f"Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf"
-        )
+        raise ValueError(f"[ERROR] Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf")
 
 def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000):
     """
-    Normalize ALT fields for variant-extractor compatibility while preserving non-key metadata tags.
-    Specifically removes tags with key=value attributes (e.g. SVSIZE=59) but keeps standalone tags (e.g. AGGREGATED).
+    Normalize <ALT> fields for variant-extractor compatibility:
+    Removes tags with key=value attributes (e.g. SVSIZE=59) but keeps standalone tags (e.g. AGGREGATED).
     Example:
         <DUP:SVSIZE=59:AGGREGATED> >> <DUP:AGGREGATED>
     Supports:
@@ -87,7 +114,7 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
 
     buffer = []
     fin, proc = open_variant_stream(svfile_in)
-
+    
     try:
         with fin, open(svfile_out, "w") as fout:
             for line in fin:
@@ -117,9 +144,7 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
             stderr = proc.stderr.read()
             retcode = proc.wait()
             if retcode != 0:
-                raise RuntimeError(
-                    f"bcftools failed on {svfile_in} (exit code {retcode}):\n{stderr}"
-                )
+                raise RuntimeError(f"[ERROR] bcftools failed on {svfile_in} (exit code {retcode}):\n{stderr}")
 
     finally:
         if proc is not None and proc.poll() is None:
@@ -138,7 +163,7 @@ def write_bed(extractor, out_path, chunk_size=5000):
             buffer.clear()
 
     # Suppress repeated htslib/pysam warnings (e.g. contig/header issues)
-    # These warnings can be emitted multiple times because the VCF is parsed by pysam (def has_only_valid_variants) and by VariantExtractor 
+    # These warnings can be emitted multiple times because the VCF is parsed previously by pysam (def has_only_valid_variants) and here by VariantExtractor 
     pysam.set_verbosity(0)
 
     with open(out_path, "w") as out:
@@ -189,4 +214,59 @@ def write_bed(extractor, out_path, chunk_size=5000):
         flush(out)
 
 
+
+from collections import defaultdict
+from pathlib import Path
+import time
+
+
+def merge_and_sort_bed(input_bed_path: str, output_bed_path: str) -> None:
+    """
+    Merge identical genomic coordinates (chr, start, end) and sort the BED file.
+    For duplicated intervals, the 4th column is merged using comma separation.
+
+    Example
+    -------
+    Input:
+        chr1  100  200  SV1
+        chr1  100  200  SV2
+        chr1  300  400  SV3
+
+    Output:
+        chr1  100  200  SV1,SV2
+        chr1  300  400  SV3
+    """
+
+    print(f"[{time.strftime('%H:%M:%S')}] Merging and sorting BED file")
+
+    bed_dict = defaultdict(set)
+
+    # Parse input BED file
+    with open(input_bed_path, "r") as f:
+        for line in f:
+            if not line.strip():
+                continue
+
+            cols = line.rstrip().split("\t")
+
+            # Key = genomic coordinates
+            key = (cols[0], int(cols[1]), int(cols[2]))
+
+            # Value = annotation (col 4 if exists)
+            value = cols[3] if len(cols) > 3 else "."
+
+            bed_dict[key].add(value)
+
+    # Build merged BED lines
+    merged_lines = [
+        f"{chrom}\t{start}\t{end}\t{','.join(sorted(values))}\n"
+        for (chrom, start, end), values in bed_dict.items()
+    ]
+
+    # Sort final BED
+    merged_lines.sort(key=lambda x: (x.split("\t")[0], int(x.split("\t")[1])))
+
+    # Write output
+    with open(output_bed_path, "w") as out:
+        out.writelines(merged_lines)
 
