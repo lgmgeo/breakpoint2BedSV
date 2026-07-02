@@ -1,6 +1,6 @@
 """
-bp2BedSV 0.1
-==============
+breakpoint2BedSV 1.0
+====================
 
 Copyright (C) 2026-current Veronique Geoffroy (veronique.geoffroy@inserm.fr)
 
