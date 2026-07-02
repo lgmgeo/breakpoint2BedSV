@@ -73,8 +73,8 @@ def main(argv):
     # (to keep here after the definition of the correct relative path to sys.path)
     ##############################################################################
     from config import configure_bp2BedSV
-    from workflow import normalize_shorthand_notation_in_alt, write_bed, merge_and_sort_bed
-    from file_utils import ensure_bgzf, is_multi_allelic, has_only_valid_variants
+    from workflow import normalize_and_filter_vcf, write_bed, merge_and_sort_bed
+    from file_utils import ensure_bgzf, has_only_valid_variants
 
 
     # Search for the breakpoint2BedSV VERSION
@@ -142,7 +142,6 @@ def main(argv):
     ######################
     try:
         has_only_valid_variants(g_bp2BedSV["input_file"])
-        is_multi_allelic(g_bp2BedSV)
 
     except ValueError as e:
         print(str(e), file=sys.stderr)
@@ -161,7 +160,7 @@ def main(argv):
     tmp_normalized = tempfile.NamedTemporaryFile(mode="w", suffix=".vcf", delete=False)
     tmp_normalized_path = tmp_normalized.name
     tmp_normalized.close()
-    normalize_shorthand_notation_in_alt(g_bp2BedSV["input_file"], tmp_normalized_path)
+    normalize_and_filter_vcf(g_bp2BedSV["input_file"], tmp_normalized_path)
 
 
     # Load and parse the normalized input VCF using VariantExtractor

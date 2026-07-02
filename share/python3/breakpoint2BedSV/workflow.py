@@ -89,12 +89,24 @@ def open_variant_stream(path):
     else:
         raise ValueError(f"[ERROR] Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf")
 
-def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000):
+def normalize_and_filter_vcf(svfile_in, svfile_out, chunk_size=50000):
     """
-    Normalize <ALT> fields for variant-extractor compatibility:
-    Removes tags with key=value attributes (e.g. SVSIZE=59) but keeps standalone tags (e.g. AGGREGATED).
+    Preprocess a VCF file before parsing with VariantExtractor:
+
+    1. Normalize <symbolic ALT> alleles by removing key=value attributes while
+    preserving standalone tags.
     Example:
-        <DUP:SVSIZE=59:AGGREGATED> >> <DUP:AGGREGATED>
+        <DUP:SVSIZE=59:AGGREGATED> -> <DUP:AGGREGATED>
+
+    2. Filter out unsupported SV records:
+    - FILTER=MULTIALLELIC (several SV lines with the same ID and ALT = <CN0> or <CN1> or <CN2> or <CN3> or...)
+    - ALT=<BND>, <CPX>, <CTX>
+
+    3. Remove some sample columns to reduce file size and
+    improve parsing performance.
+
+    4. Write the resulting VCF to `svfile_out`.
+       
     Supports:
         - .vcf
         - .vcf.gz
@@ -123,7 +135,12 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
         with fin, open(svfile_out, "w") as fout:
             for line in fin:
                 if line.startswith("#"):
-                    buffer.append(line)
+                    if line.startswith("#CHROM"):
+                        # Keep only the first 10 columns
+                        fields = line.rstrip("\n").split("\t")
+                        buffer.append("\t".join(fields[:10])  + "\n")
+                    else:
+                        buffer.append(line)
                     continue
 
                 fields = line.rstrip("\n").split("\t")
@@ -133,24 +150,34 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
                     buffer.append(line)
                     continue
 
+                # REF or ALT: MULTIALLELIC (contains a comma)
+                ref = fields[3]
+                alt = fields[4]
+                if "," in ref or "," in alt:
+                    n_mcnv += 1
+                    continue
                 # FILTER: MULTIALLELIC (as in gnomAD SV v4: same ID and ALT = <CN0> or <CN1> or <CN2> or <CN3> or...)
-                if "MULTIALLELIC" in fields[6]:
+                filter = fields[6]
+                if "MULTIALLELIC" in filter:
                     n_mcnv += 1
                     continue
 
-                # TYPE: BND/CPX/CTX (as in gnomAD SV v4)
-                if fields[4] == "<BND>":
+                # ALT: BND/CPX/CTX (as in gnomAD SV v4)
+                if alt == "<BND>":
                     n_bnd += 1
                     continue
-                if fields[4] == "<CPX>":
+                if alt == "<CPX>":
                     n_cpx += 1
                     continue  
-                if fields[4] == "<CTX>":
+                if alt == "<CTX>":
                     n_ctx += 1
                     continue
 
                 # ALT: normalisation de la notation abrégée
                 fields[4] = fix_alt(fields[4])
+
+                # Keep only the first 10 columns
+                fields = fields[:10]  
 
                 buffer.append("\t".join(fields) + "\n")
 
@@ -160,6 +187,9 @@ def normalize_shorthand_notation_in_alt(svfile_in, svfile_out, chunk_size=50000)
 
             if buffer:
                 fout.writelines(buffer)
+            
+            if n_mcnv + n_cpx + n_bnd + n_ctx > 0: 
+                print("Filtering unsupported SV types (MULTIALLELIC, BND, CPX and CTX):")
             if n_mcnv > 0:
                 print(f"[{time.strftime('%H:%M:%S')}] - {n_mcnv} MULTIALLELIC lines were removed from the input file")
             if n_cpx > 0:   

@@ -142,29 +142,3 @@ def natural_sort_key(s):
     """Return a key for natural sorting (like Tcl -dictionary)."""
     # split into list of ints and non-ints
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
-
-
-
-
-def is_multi_allelic(g_bp2BedSV):
-    """
-    Check if the SV input file contains multi-allelic lines.
-    """
-
-    print(f"[{time.strftime('%H:%M:%S')}] Ensuring that the SV input file contains only biallelic variants")
-
-    input_file = g_bp2BedSV["input_file"]
-    if input_file.endswith(".gz"):
-        cmd = f"zcat {input_file} | grep -v ^# | cut -f 4-5 | grep -c ,"
-    else:
-        cmd = f"grep -v ^# {input_file} | cut -f 4-5 | grep -c ,"
-
-    try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
-        output = result.stdout.strip()
-        n_multiallelic_line = output[0] if output else "" 
-        if n_multiallelic_line != "0":
-            raise ValueError("[ERROR] Please split the multi-allelic lines of the SV input file before to run bp2BedSV")
-    except subprocess.CalledProcessError:
-        pass
-

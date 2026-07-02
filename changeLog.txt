@@ -1,5 +1,5 @@
 ############################################################################################################
-# breakpoint2BedSV 0.1                                                                                     #
+# breakpoint2BedSV 1.0                                                                                     #
 #                                                                                                          #
 # Copyright (C) 2026-current Veronique Geoffroy (veronique.geoffroy@inserm.fr)                             #
 #                                                                                                          #
@@ -20,7 +20,8 @@
 
 For more details, please see the README file.
 
-Jun, 30, 2026, breakpoint2BedSV version 1.0
+Jul, 02, 2026, breakpoint2BedSV version 1.0
+	- Remove sample columns to reduce VCF size and improve parsing performance
 	- Introduce automated testing (pytest, 9 tests) and CI pipeline (GitHub Actions)
 	- Skip unsupported SV types (MULTIALLELIC, BND, CPX and CTX)
 	- Add support for .bcf input files (via bcftools streaming)
