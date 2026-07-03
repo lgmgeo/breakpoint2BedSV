@@ -40,6 +40,10 @@ python >=3.8
 pysam==0.22.1
 variant_extractor==5.1.0
 ```
+In addition to Python dependencies, this tool requires:
+
+- Python >= 3.8
+- bcftools (required for handling compressed files (`.vcf.gz` or `.bcf`)
 
 ## Quick Installation
 
@@ -125,7 +129,7 @@ The following SV are not supported:
 ## How to cite?
 
 Please cite the following doi if you are using this tool in your research:<br>
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.14922213-blue.svg)](https://doi.org/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21134592.svg)](https://doi.org/10.5281/zenodo.21134592)
 
 ## Tests
 

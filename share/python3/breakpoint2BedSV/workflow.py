@@ -40,7 +40,7 @@ def open_variant_stream(path):
     fin : file-like object
         Readable text stream containing VCF lines.
     proc : subprocess.Popen or None
-        bcftools process if input is BCF, otherwise None.
+        bcftools process if input is BCF or non BGZF-compressed VCF, otherwise None.
     """
     path = Path(path)
     suffixes = path.suffixes

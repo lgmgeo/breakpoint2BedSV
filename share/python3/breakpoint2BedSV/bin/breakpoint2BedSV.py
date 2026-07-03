@@ -103,7 +103,7 @@ def main(argv):
 
 
     # Display
-	#########
+    #########
     print(f"\nbreakpoint2BedSV {g_bp2BedSV['version']}")
     print("Copyright (C) 2026-current GEOFFROY Veronique")
     print("Please feel free to create a Github issue for any suggestions or bug reports")
@@ -193,8 +193,8 @@ def main(argv):
         Path(tmp_bgzf + ".tbi").unlink(missing_ok=True)
 
 
-	# Finished
-	##########
+    # Finished
+    ##########
     print(f"[{time.strftime('%H:%M:%S')}] breakpoint2BedSV completed successfully")
 
 
