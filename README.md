@@ -41,8 +41,6 @@ pysam==0.22.1
 variant_extractor==5.1.0
 ```
 In addition to Python dependencies, this tool requires:
-
-- Python >= 3.8
 - bcftools (required for handling compressed files (`.vcf.gz` or `.bcf`)
 
 ## Quick Installation
@@ -155,6 +153,8 @@ All tests are also executed automatically through GitHub Actions on each push an
 **Aim**
 
 Annotate SVs in a VCF with a `gnomAD_excl` flag when at least one breakpoint overlaps a gnomAD v4 SV exclusion region.
+
+<img src="./share/doc/breakpoint2BedSV/breakpoint2BedSV_overlap.png" alt="SV schema"/>
 
 **Workflow**
 
