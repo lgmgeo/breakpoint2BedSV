@@ -1,7 +1,5 @@
 """
-breakpoint2BedSV 1.0
-====================
-
+breakpoint2bedsv
 Copyright (C) 2026-current Veronique Geoffroy (veronique.geoffroy@inserm.fr)
 
 This program is free software; you can redistribute it and/or
@@ -27,6 +25,9 @@ import subprocess
 import time
 import pysam
 import sys
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def ensure_bgzf(path):
@@ -62,12 +63,17 @@ def ensure_bgzf(path):
         return str(path), None
 
     try:
-        # Check if the .vcf.gz is already BGZF-compressed
+        # Check if the .vcf.gz is already BGZF-compressed and can be read by pysam.
         pysam.VariantFile(str(path))
         return str(path), None
     
     except Exception:
-        # If not, decompress and recompress to BGZF in a temporary file
+        # The file is not directly readable by pysam.
+        # It may be gzip-compressed rather than BGZF-compressed,
+        # so decompress it and recompress it as BGZF.
+        logger.info(
+            "Input VCF.gz is not BGZF-compressed; creating a temporary BGZF file"
+        )
 
         # Create a temporary file for the decompressed VCF
         tmp_vcf = tempfile.NamedTemporaryFile(suffix=".vcf", delete=False)
@@ -86,6 +92,8 @@ def ensure_bgzf(path):
             pysam.tabix_compress(tmp_vcf.name, tmp_bgzf.name, force=True)
             pysam.tabix_index(tmp_bgzf.name, preset="vcf", force=True)
 
+            logger.info("Temporary BGZF file created: %s", tmp_bgzf.name)
+
             return tmp_bgzf.name, tmp_bgzf.name
         finally:
             # Clean up the temporary decompressed VCF file
@@ -96,38 +104,44 @@ def ensure_bgzf(path):
 def has_only_valid_variants(sv_file: str) -> bool:
     """
     Check if a VCF/VCF.gz/BCF file:
-    - has the good extension
-    - contains at least 1 SV
+    - has a supported extension
     - exists
-    - is valid
+    - is a valid VCF/BCF file
+    - contains at least 1 SV
 
     Returns:
-        True if file is empty or invalid, False otherwise.
+        True if the file contains at least one variant.
+
+    Raises:
+        ValueError: If the file has an unsupported extension, does not exist,
+                    is invalid, or contains no variants.
     """
 
-    print(f"[{time.strftime('%H:%M:%S')}] Ensuring that the SV input file contains only valid variants")
+    logger.info("Ensuring that the SV input file contains only valid variants")
 
     # Quick check on extension
     if not re.search(r"\.vcf(\.gz)?$|\.bcf$", sv_file, re.IGNORECASE):
-        raise ValueError(f"[ERROR] Not the correct extension: {sv_file}")
+        raise ValueError(f"Not the correct extension: {sv_file}")
 
     try:
 
         with pysam.VariantFile(sv_file) as vf:
             # Try to get first record
+            # If a record is found, the file contains at least one variant
             for _ in vf:
-                return True  # Found at least one variant
+                return True  
     except FileNotFoundError:
         # File doesn't exist 
-        raise ValueError(f"[ERROR] File doesn't exist: {sv_file}")
+        raise ValueError(f"File doesn't exist: {sv_file}")
     except (ValueError, OSError) as e:
-        # pysam raises ValueError for invalid format
-        raise ValueError(f"[ERROR] Invalid VCF/BCF file {sv_file}: {e}")
+        # pysam raises ValueError or OSError for invalid or unreadable files.
+        raise ValueError(f"Invalid VCF/BCF file {sv_file}: {e}")
     except Exception as e:
-        raise ValueError(f"[ERROR] Could not read file {sv_file}: {e}")
+        # Catch unexpected errors while reading the file.
+        raise ValueError(f"Could not read file {sv_file}: {e}")
 
     # No records found → file is empty
-    raise ValueError(f"[ERROR] No SV found in file: {sv_file}")
+    raise ValueError(f"No SV found in file: {sv_file}")
 
 
 

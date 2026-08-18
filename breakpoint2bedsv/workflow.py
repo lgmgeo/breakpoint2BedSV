@@ -1,7 +1,5 @@
 """
-breakpoint2BedSV 1.0
-====================
-
+breakpoint2bedsv
 Copyright (C) 2026-current Veronique Geoffroy (veronique.geoffroy@inserm.fr)
 
 This program is free software; you can redistribute it and/or
@@ -17,10 +15,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; If not, see <http://www.gnu.org/licenses/>.
 """
+
 import subprocess
 import pysam
 from pathlib import Path
 import tempfile
+from collections import defaultdict
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def open_variant_stream(path):
@@ -47,6 +50,8 @@ def open_variant_stream(path):
 
     # BCF 
     if suffixes and suffixes[-1] == ".bcf":
+        logger.debug("Opening BCF file with bcftools: %s", path)
+
         proc = subprocess.Popen(
             ["bcftools", "view", "-Ov", str(path)],
             stdout=subprocess.PIPE,
@@ -57,12 +62,17 @@ def open_variant_stream(path):
 
     # VCF.GZ
     elif len(suffixes) >= 2 and suffixes[-2:] == [".vcf", ".gz"]:
-        # Vérifie si le fichier est déjà BGZF
+        # Check if the file is already BGZF-compressed
         try:
             pysam.VariantFile(str(path)).close()
+            logger.debug("VCF.GZ file is already BGZF-compressed: %s", path)
             bgzf_path = path
         except (OSError, ValueError):
             # Conversion automatique en BGZF
+            logger.warning(
+                "VCF.GZ file is not BGZF-compressed; converting to BGZF: %s",
+                path,
+            )
             tmp = tempfile.NamedTemporaryFile(
                 suffix=".vcf.gz",
                 delete=False,
@@ -74,6 +84,8 @@ def open_variant_stream(path):
 
             bgzf_path = Path(tmp.name)
 
+            logger.debug("Temporary BGZF file created: %s", bgzf_path)
+
         proc = subprocess.Popen(
             ["bcftools", "view", "-Ov", str(bgzf_path)],
             stdout=subprocess.PIPE,
@@ -84,10 +96,12 @@ def open_variant_stream(path):
 
     # Plain VCF
     elif suffixes and suffixes[-1] == ".vcf":
+        logger.debug("Opening plain VCF file: %s", path)
         return open(path, "r"), None
 
     else:
-        raise ValueError(f"[ERROR] Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf")
+        raise ValueError(f"Unsupported input format for {path}. Expected .vcf, .vcf.gz or .bcf")
+
 
 def normalize_and_filter_vcf(svfile_in, svfile_out, chunk_size=50000):
     """
@@ -112,6 +126,8 @@ def normalize_and_filter_vcf(svfile_in, svfile_out, chunk_size=50000):
         - .vcf.gz
         - .bcf
     """
+
+    logger.debug("Normalizing and filtering VCF: %s -> %s", svfile_in, svfile_out)
 
     def fix_alt(alt):
         if not (alt.startswith("<") and alt.endswith(">")):
@@ -189,22 +205,22 @@ def normalize_and_filter_vcf(svfile_in, svfile_out, chunk_size=50000):
                 fout.writelines(buffer)
             
             if n_mcnv + n_cpx + n_bnd + n_ctx > 0: 
-                print("Filtering unsupported SV types (MULTIALLELIC, BND, CPX and CTX):")
+                logger.warning("Filtering unsupported SV types (MULTIALLELIC, BND, CPX and CTX):")
             if n_mcnv > 0:
-                print(f"[{time.strftime('%H:%M:%S')}] - {n_mcnv} MULTIALLELIC lines were removed from the input file")
+                logger.warning("%d MULTIALLELIC lines were removed from the input file", n_mcnv)
             if n_cpx > 0:   
-                print(f"[{time.strftime('%H:%M:%S')}] - {n_cpx} CPX lines were removed from the input file")
+                logger.warning("%d CPX lines were removed from the input file", n_cpx)
             if n_bnd > 0:
-                print(f"[{time.strftime('%H:%M:%S')}] - {n_bnd} BND lines were removed from the input file")
+                logger.warning("%d BND lines were removed from the input file", n_bnd)
             if n_ctx > 0:
-                print(f"[{time.strftime('%H:%M:%S')}] - {n_ctx} CTX lines were removed from the input file")
+                logger.warning("%d CTX lines were removed from the input file", n_ctx)
 
         # si on est passé par bcftools, vérifier qu'il s'est terminé correctement
         if proc is not None:
             stderr = proc.stderr.read()
             retcode = proc.wait()
             if retcode != 0:
-                raise RuntimeError(f"[ERROR] bcftools failed on {svfile_in} (exit code {retcode}):\n{stderr}")
+                raise RuntimeError(f"bcftools failed on {svfile_in} (exit code {retcode}):\n{stderr}")
 
     finally:
         if proc is not None and proc.poll() is None:
@@ -214,6 +230,9 @@ def normalize_and_filter_vcf(svfile_in, svfile_out, chunk_size=50000):
 
 
 def write_bed(extractor, out_path, chunk_size=5000):
+
+    logger.debug("Writing BED file: %s", out_path)
+
 
     buffer = []
 
@@ -275,11 +294,6 @@ def write_bed(extractor, out_path, chunk_size=5000):
 
 
 
-from collections import defaultdict
-from pathlib import Path
-import time
-
-
 def merge_and_sort_bed(input_bed_path: str, output_bed_path: str) -> None:
     """
     Merge identical genomic coordinates (chr, start, end) and sort the BED file.
@@ -297,7 +311,8 @@ def merge_and_sort_bed(input_bed_path: str, output_bed_path: str) -> None:
         chr1  300  400  SV3
     """
 
-    print(f"[{time.strftime('%H:%M:%S')}] Merging and sorting BED file")
+    logger.info("Merging and sorting BED file")
+    logger.debug("%s -> %s", input_bed_path, output_bed_path)
 
     bed_dict = defaultdict(set)
 

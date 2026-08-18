@@ -6,6 +6,7 @@ __pycache__/
 
 # Personal README
 README.vero
+*.swp
 
 # Personal test
 test_00*

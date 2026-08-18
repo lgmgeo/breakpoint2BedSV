@@ -1,7 +1,5 @@
 """
-breakpoint2BedSV 1.0
-====================
-
+breakpoint2bedsv
 Copyright (C) 2026-current Veronique Geoffroy (veronique.geoffroy@inserm.fr)
 
 This program is free software; you can redistribute it and/or
@@ -18,12 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program; If not, see <http://www.gnu.org/licenses/>.
 """
 
+from breakpoint2bedsv import __version__
 import os
-import sys
-import subprocess
-import shutil
 import argparse
 import tempfile
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def valid_tool_path(tool_path, tool_name):
@@ -36,8 +35,10 @@ def valid_tool_path(tool_path, tool_name):
         
     # Resolve "full path" / "command name" in PATH
     resolved_path = shutil.which(tool_path)
+    logger.debug("Checking executable: %s", resolved_path)
+
     if resolved_path is None:
-        raise ValueError(f"[ERROR] {tool_name} not found in PATH ('{tool_path}').")
+        raise ValueError(f"{tool_name} not found in PATH ('{tool_path}').")
 
     # Try running the tool
     try:
@@ -53,17 +54,19 @@ def valid_tool_path(tool_path, tool_name):
         # Check if 'usage' or 'help' appears in output
         output = result.stdout.lower()
         if "usage" not in output and "help" not in output:
-            raise ValueError(f"[ERROR] {tool_name} does not seem valid ('{tool_path}').")
+            raise ValueError(f"{tool_name} does not seem valid ('{tool_path}').")
 
     except Exception as e:
-        raise ValueError(f"[ERROR] Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
+        raise ValueError(f"Cannot execute {tool_name} ('{tool_path}'). {str(e)}")
+
+    logger.debug("Resolved %s to: %s", tool_name, resolved_path)
 
     return resolved_path
 
  
 
     
-def configure_bp2BedSV(argv, g_bp2BedSV):
+def parse_args(argv=None):
     """
     Configure bp2BedSV options from argv.
     """
@@ -79,15 +82,21 @@ def configure_bp2BedSV(argv, g_bp2BedSV):
     #############################
 
     # ───────────────────────────────────────────
-    # 0) HELP & VERSION
+    # 0) HELP, VERSION & LOGGING
     # (argparse automatically adds -h/--help)
     # ───────────────────────────────────────────
     parser.add_argument(
         "-V", "--version",
         action="version",
-        version=f"bp2BedSV {g_bp2BedSV['version']}",
+        version=f"breakpoint2bedsv {__version__}",
         help="show program's version number and exit"
-    )    
+    )
+
+    parser.add_argument(
+        "--log-file",
+        metavar="<File>",
+        help="write log messages to the specified file"
+    )
 
     # ───────────────────────────────────────────
     # 1) INPUT FILES
@@ -155,37 +164,42 @@ if not provided, the system default temporary directory is used"""
     # - long names become lowercase
     # - hyphens '-' are replaced with underscores '_'
     # Access the value via args.option_name, e.g., input-file >> args.input_file
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    # Completion of the g_bp2BedSV dictionary
-    ###########################################
-    g_bp2BedSV.update(vars(args))
         
     # Check tmp_dir
     ###############
     # Determine tmp_dir
-    if g_bp2BedSV["tmp_dir"] is None:
-        g_bp2BedSV["tmp_dir"] = tempfile.gettempdir()  # default system tmp
+    if args.tmp_dir is None:
+        args.tmp_dir = tempfile.gettempdir()  # default system tmp
     else:
         # Ensure directory exists
-        if not os.path.isdir(g_bp2BedSV["tmp_dir"]):
-            raise ValueError(f"[ERROR] Temporary directory does not exist: {g_bp2BedSV['tmp_dir']}")
+        if not os.path.isdir(args.tmp_dir):
+            raise ValueError(
+                f"Temporary directory does not exist: {args.tmp_dir}"
+            )
+
     
     # Determine output_dir if not given in argument
     ###############################################
-    if g_bp2BedSV["output_dir"] == None:
-        if "/" in g_bp2BedSV["output_file"]:
-            output_dir = os.path.dirname(g_bp2BedSV["output_file"])
+    if args.output_dir is None:
+        if "/" in args.output_file:
+            output_dir = os.path.dirname(args.output_file)
             if not os.path.exists(output_dir):
-                output_dir = "."    
+                output_dir = "."
         else:
             output_dir = "."
-    # Store output_dir in global dictionary
-    g_bp2BedSV["output_dir"] = output_dir
+    else:
+        output_dir = args.output_dir
+
+    # Store output_dir in args
+    args.output_dir = output_dir
+
 
     # Determine output_file
     #######################
-    if not g_bp2BedSV["output_file"].lower().endswith(".bed"):
-        g_bp2BedSV["output_file"] += ".bed"
+    if not args.output_file.lower().endswith(".bed"):
+        args.output_file += ".bed"
 
 
+    return args

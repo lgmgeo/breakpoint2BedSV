@@ -20,7 +20,11 @@
 
 For more details, please see the README file.
 
-Jul, 02, 2026, breakpoint2BedSV version 1.0
+Aug, 18, 2026, breakpoint2bedsv version 1.1.0
+	- Add Poetry packaging, CLI, logging and test suite
+	- Update of the README.md
+
+Jul, 02, 2026, breakpoint2bedsv version 1.0
 	- Remove sample columns to reduce VCF size and improve parsing performance
 	- Introduce automated testing (pytest, 9 tests) and CI pipeline (GitHub Actions)
 	- Skip unsupported SV types (MULTIALLELIC, BND, CPX and CTX)
@@ -28,8 +32,8 @@ Jul, 02, 2026, breakpoint2BedSV version 1.0
 	- Add the README.md
 	- Improve the output display
 
-Jun, 15, 2026, breakpoint2BedSV version 0.1
-	- breakpoint2BedSV: Extract SV breakpoints from a VCF and export them in BED format.
+Jun, 15, 2026, breakpoint2bedsv version 0.1
+	- breakpoint2bedsv: Extract SV breakpoints from a VCF and export them in BED format.
 
 
 

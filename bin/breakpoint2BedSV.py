@@ -1,1 +1,0 @@
-../share/python3/breakpoint2BedSV/bin/breakpoint2BedSV.py

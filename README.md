@@ -7,14 +7,17 @@
 - [Why extracting start/end SV breakpoints from a VCF is not trivial](#why-extracting-startend-sv-breakpoints-from-a-vcf-is-not-trivial)
 - [Requirements](#requirements)
 - [Quick Installation](#quick-installation)
+  - [Install from PyPI](#install-from-pypi)
+  - [Upgrade](#upgrade)
+  - [Install from GitHub](#install-from-github)
+  - [Run the test suite](#run-the-test-suite)
 - [Command line usage / Options](#command-line-usage--options)
 - [Outputs](#outputs)
 - [Variant filtering rules](#variant-filtering-rules)
-  - [FILTER-based / ALT-based exclusions](#filter-based--alt-based-exclusions)
   - [Behavior](#behavior)
 - [How to cite?](#how-to-cite)
-- [Tests](#tests)
-- [Example use: Assessment in a cohort of SV presence/absence relative to gnomAD v4 SV](#example-use-assessment-in-a-cohort-of-sv-presenceabsence-relative-to-gnomad-v4-sv)
+- [Example application: Cohort assessment of SV presence/absence using gnomAD v4 SVs as reference](#example-application-cohort-assessment-of-sv-presenceabsence-using-gnomad-v4-svs-as-reference)
+- [License](#license)
 
 ## Why extracting start/end SV breakpoints from a VCF is not trivial
 
@@ -33,47 +36,78 @@ As a consequence, extracting both breakpoints from an SV VCF requires handling m
 `breakpoint2BedSV` addresses this issue by converting heterogeneous SV representations into a unified BED-like breakpoint format.
 
 ## Requirements
-
-```text
-python >=3.8
-#poetry #(https://python-poetry.org/docs/#installation)
-pysam==0.22.1
-variant_extractor==5.1.0
-```
-In addition to Python dependencies, this tool requires:
-- bcftools (required for handling compressed files (`.vcf.gz` or `.bcf`)
+<i>cf</i> [`pyproject.toml`](pyproject.toml)
 
 ## Quick Installation
 
+### Install from PyPI
+
+The recommended way to install `breakpoint2BedSV` is with `pip`:
+
 ```bash
-conda create -n breakpoint2BedSV python=3.8 pysam==0.22.1
-pip install variant-extractor
-
-conda activate breakpoint2BedSV
-
-# Install from GitHub
-git clone git@github.com:lgmgeo/breakpoint2BedSV.git
-
-# Install with poetry
-(not yet available)
-
-# Install from PyPI
-pip3 install breakpoint2BedSV (not yet available)
-
-# Upgrade 
-pip3 install breakpoint2BedSV --upgrade (not yet available)
+pip install breakpoint2bedsv
 ```
+
+Then verify the installation:
+
+```bash
+breakpoint2bedsv --help
+```
+
+### Upgrade
+
+To upgrade to the latest version:
+
+```bash
+pip install --upgrade breakpoint2bedsv
+```
+
+### Install from GitHub
+
+To install the latest development version directly from GitHub:
+
+```bash
+git clone https://github.com/lgmgeo/breakpoint2BedSV.git
+cd breakpoint2BedSV
+poetry install
+```
+
+Then run:
+
+```bash
+poetry run breakpoint2bedsv --help
+```
+
+### Run the test suite
+
+To run all tests locally:
+
+```bash
+poetry run pytest -v
+```
+
+To list the collected tests without executing them:
+
+```bash
+poetry run pytest --collect-only
+```
+
+The test data and test scripts are located in the `tests/` directory.
+
+All tests are also executed automatically through GitHub Actions on each push and pull request.
+
 
 ## Command line usage / Options
 
 ```bash
-usage: breakpoint2BedSV.py [-h] [-V] -i <File> [-d <Dir>] -o <File> [-T <Dir>] [-v]
+usage: breakpoint2bedsv [-h] [-V] [--log-file <File>] -i <File> [-d <Dir>] -o <File> [-T <Dir>] [-v]
 
 Convert SV breakpoints from VCF/BCF to BED
 
 optional arguments:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --log-file <File>     write log messages to the specified file
 
 Input files:
   -i <File>, --input-file <File>
@@ -97,7 +131,6 @@ Behavior:
                         directory where temporary files will be created
                         if not provided, the system default temporary directory is used
   -v, --verbose         enable verbose output
-
 ```
 
 ## Outputs
@@ -110,10 +143,6 @@ Redundant genomic coordinates are merged into a single BED entry, with multiple 
 `breakpoint2BedSV` only processes structural variants compatible with breakpoint-based BED representation.
 
 During parsing, the following records are automatically ignored:
-
-### FILTER-based / ALT-based exclusions
-
-The following SV are not supported:
 - FILTER = `MULTIALLELIC` (including MCNV-like multi-allelic CNV representations)
 - ALT = `<BND>` (breakend complex rearrangements)
 - ALT = `<CPX>` (complex structural variants)
@@ -127,34 +156,16 @@ The following SV are not supported:
 ## How to cite?
 
 Please cite the following doi if you are using this tool in your research:<br>
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21134592.svg)](https://doi.org/10.5281/zenodo.21134592)
+[![DOI](./doc/zenodo.21134592.svg)](https://doi.org/10.5281/zenodo.21134592)
 
-## Tests
-
-`breakpoint2BedSV` includes an automated test suite based on `pytest`.
-
-To run all tests locally:
-
-```bash
-pytest -v
-```
-
-To list the collected tests without executing them:
-
-```bash
-pytest --collect-only
-```
-
-The test data and test scripts are located in the `tests/` directory.
-All tests are also executed automatically through GitHub Actions on each push and pull request.
-
-## Example use: Assessment in a cohort of SV presence/absence relative to gnomAD v4 SV
+## Example application: Cohort assessment of SV presence/absence using gnomAD v4 SVs as reference
 
 **Aim**
 
-Annotate SVs in a VCF with a `gnomAD_excl` flag when at least one breakpoint overlaps a gnomAD v4 SV exclusion region.
+=> Annotate PE/SR-based SVs in a VCF with a `gnomAD_excl` flag when at least one breakpoint overlaps a gnomAD v4 SV exclusion region.
+(<i>cf</i> <a href="https://discuss.gnomad.broadinstitute.org/t/centromeric-del-detected-by-manta-and-visible-in-coverage-but-missing-from-gnomad-sv/833" target="_blank">discussion</a> in the gnomAD forum)
 
-<img src="./share/doc/breakpoint2BedSV/breakpoint2BedSV_overlap.png" alt="SV schema"/>
+<img src="./doc/breakpoint2BedSV_overlap.png" alt="SV schema"/>
 
 **Workflow**
 
@@ -261,3 +272,17 @@ BEGIN {
 }
 ' input.vcf > input.gnomAD_excl.vcf
 ```
+
+## License
+
+breakpoint2bedsv is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+breakpoint2bedsv is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+See the `LICENSE` file for the full license text.

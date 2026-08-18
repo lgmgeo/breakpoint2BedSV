@@ -4,8 +4,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "bin" / "breakpoint2BedSV.py"
-BASE = Path("tests/data")
+BASE = ROOT / "tests" / "data"
 CASES = [
     "test_01_angle-bracketed_notation",
     "test_02_square-bracketed_notation",
@@ -37,31 +36,34 @@ def run_case(tmp_path, case):
 
     out_file = tmp_path / "out.bed"
 
-    result=subprocess.run(
+    result = subprocess.run(
         [
-            "python3",
-            SCRIPT,
+            "poetry",
+            "run",
+            "breakpoint2bedsv",
             "-i", str(input_vcf),
             "-o", str(out_file),
         ],
 		capture_output=True,
         text=True,
+        # Ensure Poetry is executed from the project root directory
+        cwd=ROOT,
     )
 
     return result, out_file, expected
 
 
 @pytest.mark.parametrize("case", CASES)
-def test_breakpoint2BedSV(tmp_path, case):
+def test_breakpoint2bedsv(tmp_path, case):
     result, out, exp = run_case(tmp_path, case)
     assert result.returncode == 0
     assert out.read_text() == exp.read_text()
 
 
 @pytest.mark.parametrize("case", ERROR_CASES)
-def test_breakpoint2BedSV_errors(tmp_path, case):
+def test_breakpoint2bedsv_errors(tmp_path, case):
     result, _, _ = run_case(tmp_path, case)
-    assert result.returncode != 0
+    assert result.returncode != 0, result.stderr
     assert "ERROR" in result.stderr
 
 
