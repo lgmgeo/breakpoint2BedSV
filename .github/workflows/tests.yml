@@ -9,9 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -20,9 +22,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bcftools
 
+      - name: Install Poetry
+        run: pip install poetry==2.1.1
+        
+      - name: Check Poetry configuration
+        run: poetry check
+
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: poetry install
 
       - name: Run tests
-        run: |
-          pytest -v
+        run: poetry run pytest -v

@@ -1,7 +1,7 @@
 
 [project]
 name = "breakpoint2bedsv"
-version = "1.1.0"
+version = "1.1.1"
 description = "Convert SV breakpoints from VCF/BCF to BED"
 license = "GPL-3.0-or-later"
 authors = [

@@ -20,6 +20,9 @@
 
 For more details, please see the README file.
 
+Aug, 21, 2026, breakpoint2bedsv version 1.1.1
+	- Update GitHub Actions to install dependencies with Poetry
+	
 Aug, 18, 2026, breakpoint2bedsv version 1.1.0
 	- Add Poetry packaging, CLI, logging and test suite
 	- Update of the README.md
